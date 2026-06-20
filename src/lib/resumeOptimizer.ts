@@ -56,13 +56,14 @@ export function generateImprovedPDF(
     }
   }
 
-  // Draw Header
+  // Draw Header Name
   doc.setFontSize(18);
   doc.setFont('Helvetica', 'bold');
+  doc.setTextColor(15, 23, 42); // slate-900
   doc.text(name.toUpperCase(), marginX, currentY);
   currentY += 6;
 
-  // Subtitle/Role target
+  // Role tag
   doc.setFontSize(10);
   doc.setFont('Helvetica', 'bold');
   doc.setTextColor(99, 102, 241); // indigo-500
@@ -72,62 +73,28 @@ export function generateImprovedPDF(
   doc.setTextColor(38, 38, 38); // slate-800
   doc.setFont('Helvetica', 'normal');
 
-  // Write a notice about optimization at the top
-  doc.setFontSize(8);
-  doc.setFont('Helvetica', 'oblique');
-  doc.setTextColor(115, 115, 115); // neutral-500
-  doc.text('Optimized via Recruiter Desk Simulator (System Action Verbs & Skill Buffs Injected)', marginX, currentY);
-  currentY += 8;
-
-  // Add Dynamic Equipped Skills Section
-  if (equippedKeywords.length > 0) {
-    doc.setFontSize(11);
-    doc.setFont('Helvetica', 'bold');
-    doc.setTextColor(99, 102, 241);
-    doc.text('SIMULATED SYSTEM BUFFS (ATS OPTIMIZED)', marginX, currentY);
-    currentY += 4;
-    
-    // Draw horizontal separator line
-    doc.setDrawColor(229, 231, 235);
-    doc.line(marginX, currentY, marginX + contentWidth, currentY);
-    currentY += 5;
-
-    doc.setFontSize(9);
-    doc.setFont('Helvetica', 'normal');
-    doc.setTextColor(38, 38, 38);
-    
-    const skillsList = equippedKeywords.join(' • ');
-    const splitSkills = doc.splitTextToSize(skillsList, contentWidth);
-    
-    splitSkills.forEach((line: string) => {
-      doc.text(line, marginX, currentY);
-      currentY += 4.5;
-    });
-    currentY += 4;
+  // Parse lines to locate a "Skills" section for native injection
+  let skillsSectionLineIdx = -1;
+  const skillsRegex = /skills|technologies|core competencies|tooling/i;
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (line.length < 35 && skillsRegex.test(line) && (line.endsWith(':') || /^[A-Z\s]+$/.test(line))) {
+      skillsSectionLineIdx = i;
+      break;
+    }
   }
 
-  // Draw optimized remaining body text
-  doc.setFontSize(11);
-  doc.setFont('Helvetica', 'bold');
-  doc.setTextColor(38, 38, 38);
-  doc.text('RESUME CONTENT DETAILED SUMMARY', marginX, currentY);
-  currentY += 4;
-  
-  doc.setDrawColor(229, 231, 235);
-  doc.line(marginX, currentY, marginX + contentWidth, currentY);
-  currentY += 6;
-
+  // Draw resume text line by line
   doc.setFontSize(9.5);
-  doc.setFont('Helvetica', 'normal');
   doc.setTextColor(38, 38, 38);
 
-  // Parse lines and output optimized verb blocks
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i].trim();
     if (rawLine === name || rawLine.length === 0) continue;
 
     // Apply verb modifications
-    const optimizedLine = optimizeActionVerbs(rawLine);
+    let optimizedLine = optimizeActionVerbs(rawLine);
 
     // Dynamic page break detection
     if (currentY > pageHeight - 20) {
@@ -135,7 +102,7 @@ export function generateImprovedPDF(
       currentY = 20;
     }
 
-    // Bold headings (simple heuristic: short, uppercase line or lines ending in colon)
+    // Heuristics for headers
     const isHeading = 
       (rawLine.length < 35 && /^[A-Z\s&,\/]+$/.test(rawLine)) || 
       (rawLine.length < 30 && rawLine.endsWith(':'));
@@ -144,10 +111,17 @@ export function generateImprovedPDF(
       currentY += 3;
       doc.setFont('Helvetica', 'bold');
       doc.setFontSize(10.5);
+      doc.setTextColor(15, 23, 42); // Slate-900
       doc.text(optimizedLine.toUpperCase(), marginX, currentY);
+      
+      // Draw a line under major headings
+      doc.setDrawColor(241, 245, 249); // slate-100
+      doc.line(marginX, currentY + 1.5, marginX + contentWidth, currentY + 1.5);
+      
       doc.setFont('Helvetica', 'normal');
       doc.setFontSize(9.5);
-      currentY += 5;
+      doc.setTextColor(64, 64, 64); // neutral-700
+      currentY += 5.5;
     } else {
       const splitText = doc.splitTextToSize(optimizedLine, contentWidth);
       splitText.forEach((lineText: string) => {
@@ -160,6 +134,62 @@ export function generateImprovedPDF(
       });
       currentY += 1.5;
     }
+
+    // Native injection: if this was the skills section header, inject the missing/equipped keywords immediately!
+    if (i === skillsSectionLineIdx && equippedKeywords.length > 0) {
+      const injectionText = `Additional Technologies (ATS Optimized): ${equippedKeywords.join(', ')}`;
+      const splitInjection = doc.splitTextToSize(injectionText, contentWidth);
+      
+      doc.setFont('Helvetica', 'bold');
+      doc.setTextColor(99, 102, 241); // indigo-500
+      
+      splitInjection.forEach((lineText: string) => {
+        if (currentY > pageHeight - 20) {
+          doc.addPage();
+          currentY = 20;
+        }
+        doc.text(lineText, marginX, currentY);
+        currentY += 4.5;
+      });
+      
+      doc.setFont('Helvetica', 'normal');
+      doc.setTextColor(64, 64, 64);
+      currentY += 1.5;
+    }
+  }
+
+  // If no native skills section was found, append equipped skills at the bottom
+  if (skillsSectionLineIdx === -1 && equippedKeywords.length > 0) {
+    if (currentY > pageHeight - 40) {
+      doc.addPage();
+      currentY = 20;
+    }
+    
+    currentY += 5;
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(10.5);
+    doc.setTextColor(99, 102, 241);
+    doc.text('CORE SKILLS & KEYWORDS (ATS SIMULATOR INJECTED)', marginX, currentY);
+    
+    doc.setDrawColor(241, 245, 249);
+    doc.line(marginX, currentY + 1.5, marginX + contentWidth, currentY + 1.5);
+    
+    currentY += 6;
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(9.5);
+    doc.setTextColor(64, 64, 64);
+
+    const skillsList = equippedKeywords.join(' • ');
+    const splitSkills = doc.splitTextToSize(skillsList, contentWidth);
+    
+    splitSkills.forEach((line: string) => {
+      if (currentY > pageHeight - 20) {
+        doc.addPage();
+        currentY = 20;
+      }
+      doc.text(line, marginX, currentY);
+      currentY += 4.5;
+    });
   }
 
   // Trigger browser download
