@@ -5,11 +5,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   analyzeResume, 
   JobRole, 
-  ATSResult,
-  RecruiterReaction,
-  SkillGroup,
-  InterviewPrediction
+  ATSResult 
 } from '../lib/atsEngine';
+import { generateImprovedPDF } from '../lib/resumeOptimizer';
 import { 
   FileText, 
   Briefcase, 
@@ -36,10 +34,9 @@ import {
   Minus,
   Sparkles,
   Flame,
-  Frown,
-  Eye,
   Sliders,
-  ChevronRight
+  ChevronRight,
+  Download
 } from 'lucide-react';
 
 const DEMO_RESUMES: Record<Exclude<JobRole, 'Other'>, string> = {
@@ -221,6 +218,7 @@ export default function Home() {
   const [roastMode, setRoastMode] = useState<boolean>(false);
   const [equippedKeywords, setEquippedKeywords] = useState<string[]>([]);
   const [simulatedScore, setSimulatedScore] = useState<number>(0);
+  const [activeTab, setActiveTab] = useState<'character' | 'keywords' | 'quests'>('character');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -314,21 +312,55 @@ export default function Home() {
     }
   };
 
+  // Gamified Badge system
+  const getBadgeDetails = (score: number) => {
+    if (score >= 85) {
+      return {
+        title: '👑 ATS Overlord',
+        desc: 'Recruiters are drooling. Your scrolls are perfectly optimized for automated scanners.',
+        color: 'border-emerald-500 bg-emerald-500/10 text-emerald-400',
+      };
+    }
+    if (score >= 70) {
+      return {
+        title: '🛡️ Resume Gladiator',
+        desc: 'Strong shield and high-level stats. A few tweaks and you command the queue.',
+        color: 'border-indigo-500 bg-indigo-500/10 text-indigo-400',
+      };
+    }
+    if (score >= 50) {
+      return {
+        title: '⚔️ Skill Challenger',
+        desc: 'Decent setup, but you need to buff your technical kit to defeat the filters.',
+        color: 'border-amber-500 bg-amber-500/10 text-amber-400',
+      };
+    }
+    return {
+      title: '🌱 Recruit Rank',
+      desc: 'Gatekeepers are blocking you. Farm some keywords and complete recommended quests below!',
+      color: 'border-rose-500 bg-rose-500/10 text-rose-400',
+    };
+  };
+
+  const badge = result ? getBadgeDetails(simulatedScore) : null;
+
   return (
-    <div className="flex flex-col min-h-screen bg-[#09090b] text-[#e4e4e7] font-sans antialiased selection:bg-[#27272a] selection:text-white pb-16">
+    <div className="flex flex-col min-h-screen bg-[#070709] text-[#e4e4e7] font-sans antialiased selection:bg-[#27272a] selection:text-white pb-16">
       
       {/* Vercel/Linear Style Header */}
-      <header className="border-b border-[#1f1f23] bg-[#09090b]/80 sticky top-0 z-50 backdrop-blur-sm">
+      <header className="border-b border-[#18181b] bg-[#070709]/90 sticky top-0 z-50 backdrop-blur-sm">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-5 h-5 rounded bg-white flex items-center justify-center">
-              <span className="text-[11px] font-black text-black">R</span>
-            </div>
+            <img 
+              src="/icon.png" 
+              alt="Recruiter Desk Icon" 
+              className="w-6 h-6 rounded object-contain border border-[#1f1f23] shadow-md shadow-indigo-500/10" 
+            />
             <div className="flex items-center space-x-2">
-              <span className="text-xs font-black uppercase tracking-widest text-[#a1a1aa]">
+              <span className="text-xs font-black uppercase tracking-widest text-[#a1a1aa] font-mono">
                 Recruiter Desk
               </span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#18181b] border border-[#27272a] text-[#71717a] font-mono font-medium">
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#18181b] border border-[#1f1f23] text-[#71717a] font-mono font-medium">
                 v1.1
               </span>
             </div>
@@ -346,7 +378,7 @@ export default function Home() {
       <main className="flex-grow max-w-5xl w-full mx-auto px-4 sm:px-6 py-10">
         
         {/* Subtle Notion-Style Title */}
-        <div className="mb-10 text-left border-b border-[#1f1f23] pb-6">
+        <div className="mb-10 text-left border-b border-[#18181b] pb-6">
           <div className="flex items-center space-x-2 text-[10px] text-amber-500 font-mono font-bold uppercase tracking-widest mb-1.5">
             <Sparkles className="w-3.5 h-3.5" />
             <span>Interactive Simulator</span>
@@ -355,7 +387,7 @@ export default function Home() {
             The Recruiter Desk Simulator
           </h1>
           <p className="text-sm text-[#a1a1aa] max-w-2xl leading-relaxed">
-            See your resume from the perspective of an ambitious, metrics-driven tech recruiter. Bypass AI layout fluff, discover missing stack items, and gauge your interview conversion rates.
+            See your resume from the perspective of an ambitious, metrics-driven tech recruiter. Bypass AI layout fluff, discover missing stack items, and download optimized ATS-compliant PDF copies.
           </p>
         </div>
 
@@ -363,7 +395,14 @@ export default function Home() {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start mb-10">
           
           {/* Form */}
-          <div className="md:col-span-7 bg-[#0d0d11] border border-[#1f1f23] rounded-xl p-5 shadow-sm">
+          <div className="md:col-span-7 bg-[#0d0d11] border border-[#18181b] rounded-xl p-5 shadow-lg shadow-black/40 relative">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full blur-xl pointer-events-none" />
+            
+            <h2 className="text-xs font-bold text-[#a1a1aa] uppercase tracking-wider mb-4 flex items-center space-x-2">
+              <FileText className="w-4 h-4 text-indigo-400" />
+              <span>1. Equip Candidate Scrolls</span>
+            </h2>
+
             <form onSubmit={handleAnalyze} className="space-y-5">
               
               {/* Selector */}
@@ -380,7 +419,7 @@ export default function Home() {
                         setSelectedRole(e.target.value as JobRole);
                         setCustomRole('');
                       }}
-                      className="w-full bg-[#18181b] border border-[#27272a] rounded-lg px-3 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-white transition-all appearance-none cursor-pointer"
+                      className="w-full bg-[#18181b] border border-[#1f1f23] rounded-lg px-3 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all appearance-none cursor-pointer"
                     >
                       <option value="Full Stack Developer">Full Stack Developer</option>
                       <option value="Frontend Developer">Frontend Developer</option>
@@ -407,7 +446,7 @@ export default function Home() {
                       value={customRole}
                       onChange={(e) => setCustomRole(e.target.value)}
                       placeholder="e.g. Security Lead"
-                      className="w-full bg-[#18181b] border border-[#27272a] rounded-lg px-3 py-2.5 text-xs text-white placeholder-[#52525b] focus:outline-none focus:ring-1 focus:ring-white transition-all"
+                      className="w-full bg-[#18181b] border border-[#1f1f23] rounded-lg px-3 py-2.5 text-xs text-white placeholder-[#52525b] focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
                     />
                   </div>
                 )}
@@ -420,7 +459,7 @@ export default function Home() {
                 </label>
                 <div 
                   onClick={() => fileInputRef.current?.click()}
-                  className="border border-dashed border-[#27272a] hover:border-[#3f3f46] rounded-xl p-4 bg-[#18181b]/50 hover:bg-[#18181b]/95 text-center cursor-pointer transition-all flex flex-col items-center justify-center group"
+                  className="border border-dashed border-[#1f1f23] hover:border-indigo-500/50 rounded-xl p-5 bg-[#18181b]/30 hover:bg-[#18181b]/70 text-center cursor-pointer transition-all flex flex-col items-center justify-center group"
                 >
                   <input
                     type="file"
@@ -436,8 +475,8 @@ export default function Home() {
                     </div>
                   ) : (
                     <div className="flex flex-col items-center py-1">
-                      <Upload className="w-4 h-4 text-[#71717a] group-hover:text-[#a1a1aa] mb-1 transition-colors" />
-                      <span className="text-xs font-semibold text-[#a1a1aa]">Click or Drag files to import</span>
+                      <Upload className="w-5 h-5 text-[#52525b] group-hover:text-indigo-400 mb-1 transition-colors" />
+                      <span className="text-xs font-semibold text-[#a1a1aa] group-hover:text-indigo-300">Click or Drag files to import</span>
                       <span className="text-[9px] text-[#52525b] mt-0.5">Supports PDF / Word doc format</span>
                     </div>
                   )}
@@ -473,7 +512,7 @@ export default function Home() {
                     value={resumeText}
                     onChange={(e) => setResumeText(e.target.value)}
                     placeholder="Import your document scroll or copy paste candidate specs here..."
-                    className="w-full bg-[#18181b] border border-[#27272a] rounded-lg p-3 text-xs text-[#d4d4d8] placeholder-[#52525b] focus:outline-none focus:ring-1 focus:ring-white transition-all font-mono resize-y"
+                    className="w-full bg-[#18181b] border border-[#1f1f23] rounded-lg p-3 text-xs text-[#d4d4d8] placeholder-[#52525b] focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all font-mono resize-y"
                   />
                   {isScanning && (
                     <div className="absolute inset-0 bg-[#0d0d11]/90 rounded-lg flex flex-col items-center justify-center border border-indigo-900/20 overflow-hidden">
@@ -490,7 +529,7 @@ export default function Home() {
               <button
                 type="submit"
                 disabled={isScanning || !resumeText.trim()}
-                className="w-full py-2.5 px-4 rounded-lg bg-white hover:bg-[#e4e4e7] text-black text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center"
+                className="w-full py-2.5 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center shadow-lg shadow-indigo-500/10 hover:shadow-indigo-500/20"
               >
                 {isScanning ? 'Processing Resume...' : 'Analyze Candidate Details'}
               </button>
@@ -499,22 +538,22 @@ export default function Home() {
 
           {/* Guidelines info */}
           <div className="md:col-span-5 space-y-5">
-            <div className="bg-[#0d0d11]/60 border border-[#1f1f23] rounded-xl p-5 shadow-sm">
+            <div className="bg-[#0d0d11]/60 border border-[#18181b] rounded-xl p-5 shadow-md">
               <h3 className="text-xs font-black text-white uppercase tracking-wider mb-3 flex items-center">
-                <Info className="w-4 h-4 text-[#a1a1aa] mr-1.5" />
+                <Info className="w-4 h-4 text-indigo-400 mr-1.5" />
                 Hiring Screen Rules
               </h3>
               <ul className="space-y-3.5 text-xs text-[#a1a1aa]">
                 <li className="flex items-start">
-                  <Check className="w-3.5 h-3.5 text-[#a1a1aa] mr-2.5 mt-0.5 flex-shrink-0" />
+                  <Check className="w-3.5 h-3.5 text-indigo-400 mr-2.5 mt-0.5 flex-shrink-0" />
                   <span><strong>Class alignment checks:</strong> Searches stack alignment for major frameworks.</span>
                 </li>
                 <li className="flex items-start">
-                  <Check className="w-3.5 h-3.5 text-[#a1a1aa] mr-2.5 mt-0.5 flex-shrink-0" />
+                  <Check className="w-3.5 h-3.5 text-indigo-400 mr-2.5 mt-0.5 flex-shrink-0" />
                   <span><strong>Scale Metrics check:</strong> Spotlights numerical details indicating measurable product performance impact.</span>
                 </li>
                 <li className="flex items-start">
-                  <Check className="w-3.5 h-3.5 text-[#a1a1aa] mr-2.5 mt-0.5 flex-shrink-0" />
+                  <Check className="w-3.5 h-3.5 text-indigo-400 mr-2.5 mt-0.5 flex-shrink-0" />
                   <span><strong>Clean Formatting:</strong> Missing email or coordinates immediately triggers recruiter review alert notes.</span>
                 </li>
               </ul>
@@ -524,7 +563,7 @@ export default function Home() {
 
         {/* Results Area */}
         <AnimatePresence>
-          {result && (
+          {result && badge && (
             <motion.div
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
@@ -535,10 +574,11 @@ export default function Home() {
             >
               
               {/* Recruiter desk board wrapper */}
-              <div className="border border-[#1f1f23] bg-[#0d0d11] rounded-2xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
+              <div className="border border-[#18181b] bg-[#0d0d11] rounded-2xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl -z-10 pointer-events-none" />
                 
                 {/* Desk Settings (Roast toggle) */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#1f1f23] pb-5 mb-8 gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#18181b] pb-5 mb-8 gap-4">
                   <div>
                     <span className="text-[10px] font-mono text-[#71717a] block uppercase tracking-widest">Workspace</span>
                     <h2 className="text-xl font-bold text-white flex items-center">
@@ -546,29 +586,41 @@ export default function Home() {
                     </h2>
                   </div>
 
-                  {/* Roast Mode Toggle switch */}
-                  <div className="flex items-center space-x-3 bg-[#18181b] border border-[#27272a] p-1.5 rounded-lg px-3">
-                    <span className="text-[10px] font-bold text-[#a1a1aa] uppercase tracking-wider flex items-center">
-                      <Flame className={`w-3.5 h-3.5 mr-1.5 transition-colors ${roastMode ? 'text-amber-500 animate-bounce' : 'text-[#71717a]'}`} />
-                      Roast Mode
-                    </span>
+                  <div className="flex items-center gap-3">
+                    {/* PDF Download Button */}
                     <button
                       type="button"
-                      onClick={() => setRoastMode(!roastMode)}
-                      className={`w-9 h-5 rounded-full p-0.5 transition-colors focus:outline-none cursor-pointer ${
-                        roastMode ? 'bg-amber-500' : 'bg-[#27272a]'
-                      }`}
+                      onClick={() => generateImprovedPDF(resumeText, equippedKeywords, result.role)}
+                      className="inline-flex items-center px-4 py-2 border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500 hover:text-black rounded-lg text-xs font-bold text-emerald-400 transition-all cursor-pointer group shadow-lg shadow-emerald-500/5"
                     >
-                      <div className={`w-4 h-4 rounded-full bg-white transition-transform ${roastMode ? 'translate-x-4' : 'translate-x-0'}`} />
+                      <Download className="w-3.5 h-3.5 mr-2 group-hover:scale-110 transition-transform" />
+                      Download Optimized PDF
                     </button>
+
+                    {/* Roast Mode Toggle switch */}
+                    <div className="flex items-center space-x-3 bg-[#18181b] border border-[#1f1f23] p-1.5 rounded-lg px-3">
+                      <span className="text-[10px] font-bold text-[#a1a1aa] uppercase tracking-wider flex items-center">
+                        <Flame className={`w-3.5 h-3.5 mr-1.5 transition-colors ${roastMode ? 'text-amber-500 animate-bounce' : 'text-[#71717a]'}`} />
+                        Roast Mode
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setRoastMode(!roastMode)}
+                        className={`w-9 h-5 rounded-full p-0.5 transition-colors focus:outline-none cursor-pointer ${
+                          roastMode ? 'bg-amber-500' : 'bg-[#27272a]'
+                        }`}
+                      >
+                        <div className={`w-4 h-4 rounded-full bg-white transition-transform ${roastMode ? 'translate-x-4' : 'translate-x-0'}`} />
+                      </button>
+                    </div>
                   </div>
                 </div>
 
                 {/* Score & predictions columns */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8 pb-8 border-b border-[#1f1f23] items-start">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8 pb-8 border-b border-[#18181b] items-start">
                   
                   {/* Recruiter Interest Meter */}
-                  <div className="lg:col-span-5 flex flex-col items-center bg-[#18181b]/50 border border-[#27272a]/30 rounded-xl p-5 relative overflow-hidden">
+                  <div className="lg:col-span-5 flex flex-col items-center bg-[#18181b]/30 border border-[#1f1f23] rounded-xl p-5 relative overflow-hidden">
                     <span className="text-[10px] font-bold text-[#71717a] uppercase tracking-wide mb-4">
                       Recruiter Interest Meter
                     </span>
@@ -580,7 +632,7 @@ export default function Home() {
                           cx="50"
                           cy="50"
                           r="42"
-                          className="stroke-[#09090b]"
+                          className="stroke-[#070709]"
                           strokeWidth="8"
                           fill="transparent"
                         />
@@ -634,7 +686,7 @@ export default function Home() {
                         const simulatedProbability = Math.min(100, Math.round(p.probability * ratio));
 
                         return (
-                          <div key={idx} className="bg-[#18181b]/30 border border-[#27272a]/20 p-3 rounded-lg flex justify-between items-center text-xs">
+                          <div key={idx} className="bg-[#18181b]/30 border border-[#1f1f23] p-3 rounded-lg flex justify-between items-center text-xs hover:bg-[#18181b]/75 transition-colors">
                             <div className="space-y-0.5">
                               <span className="block font-bold text-white">{p.stage}</span>
                               <span className="text-[10px] text-[#71717a] block leading-snug">{p.feedback}</span>
@@ -656,10 +708,10 @@ export default function Home() {
                 </div>
 
                 {/* Recruiter Notes & Roast sticky panel */}
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-8 mb-8 pb-8 border-b border-[#1f1f23]">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-8 mb-8 pb-8 border-b border-[#18181b]">
                   
                   {/* Notes Feed */}
-                  <div className="md:col-span-6 bg-yellow-950/10 border border-yellow-900/20 rounded-xl p-4 relative">
+                  <div className="md:col-span-6 bg-yellow-950/10 border border-yellow-900/20 rounded-xl p-4 relative shadow-sm">
                     <div className="absolute top-3 right-3 w-2.5 h-2.5 bg-yellow-500 rounded-full animate-ping" />
                     <h3 className="text-xs font-bold text-yellow-500 mb-3 flex items-center">
                       <span className="mr-1.5">📝</span>
@@ -681,7 +733,7 @@ export default function Home() {
                     </h3>
                     <div className="space-y-2">
                       {result.reactions.map((rx, idx) => (
-                        <div key={idx} className="flex items-center justify-between bg-[#18181b]/30 p-2.5 rounded-lg border border-[#27272a]/20 text-xs">
+                        <div key={idx} className="flex items-center justify-between bg-[#18181b]/30 p-2.5 rounded-lg border border-[#1f1f23] text-xs hover:border-slate-800 transition-colors">
                           <span className="text-white flex items-center leading-normal">
                             <span className="mr-2 flex-shrink-0 text-sm">
                               {rx.type === 'success' ? '✅' : rx.type === 'project' ? '🔥' : rx.type === 'warn' ? '⚠' : '🚫'}
@@ -707,14 +759,14 @@ export default function Home() {
                       <span>Skill Heatmap Stats</span>
                       <Sliders className="w-3.5 h-3.5" />
                     </h3>
-                    <div className="space-y-3.5 bg-[#18181b]/20 p-4 rounded-xl border border-[#27272a]/30">
+                    <div className="space-y-3.5 bg-[#18181b]/20 p-4 rounded-xl border border-[#1f1f23]">
                       {result.skillsHeatmap.map((skill, idx) => (
                         <div key={idx} className="space-y-1.5">
                           <div className="flex justify-between text-[11px]">
                             <span className="font-semibold text-white">{skill.name}</span>
                             <span className="font-mono text-[#71717a]">{skill.score}% matches</span>
                           </div>
-                          <div className="w-full bg-[#18181b] rounded-full h-1.5 overflow-hidden">
+                          <div className="w-full bg-[#18181b] rounded-full h-1.5 overflow-hidden border border-[#1f1f23]">
                             <div 
                               className={`h-1.5 rounded-full transition-all duration-500 ${
                                 skill.score >= 75 ? 'bg-emerald-500' : skill.score >= 50 ? 'bg-amber-500' : 'bg-rose-500'
@@ -724,7 +776,7 @@ export default function Home() {
                           </div>
                           <div className="flex flex-wrap gap-1 mt-1">
                             {skill.keywords.map((k, kIdx) => (
-                              <span key={kIdx} className="text-[9px] text-[#52525b] px-1 bg-[#18181b] border border-[#27272a]/40 rounded font-mono">
+                              <span key={kIdx} className="text-[9px] text-[#52525b] px-1 bg-[#18181b] border border-[#1f1f23] rounded font-mono">
                                 {k}
                               </span>
                             ))}
@@ -739,7 +791,7 @@ export default function Home() {
                     <h3 className="text-xs font-bold text-[#71717a] uppercase tracking-wider">
                       Sandbox Skill Equip Simulator
                     </h3>
-                    <div className="bg-[#18181b]/30 border border-[#27272a]/40 rounded-xl p-4 space-y-4">
+                    <div className="bg-[#18181b]/30 border border-[#1f1f23] rounded-xl p-4 space-y-4">
                       <div className="flex items-start space-x-2 text-[10px] leading-relaxed text-[#71717a]">
                         <Info className="w-4 h-4 text-indigo-400 flex-shrink-0 mt-0.5" />
                         <span>Click on these missing resume skills to simulate adding them to your resume scroll. Watch your Recruiter Interest level update live!</span>
@@ -756,7 +808,7 @@ export default function Home() {
                               <button
                                 key={idx}
                                 onClick={() => toggleKeywordEquip(kw)}
-                                className="inline-flex items-center px-2 py-1 bg-[#18181b] hover:bg-indigo-950/40 border border-[#27272a] hover:border-indigo-800 text-[10px] rounded font-mono font-medium text-[#a1a1aa] transition-colors cursor-pointer"
+                                className="inline-flex items-center px-2 py-1 bg-[#18181b] hover:bg-indigo-950/40 border border-[#1f1f23] hover:border-indigo-800 text-[10px] rounded font-mono font-medium text-[#a1a1aa] transition-all cursor-pointer"
                                 title="Simulate adding keyword"
                               >
                                 <Plus className="w-3 h-3 mr-1 text-[#52525b]" />
@@ -771,7 +823,7 @@ export default function Home() {
 
                       {/* Equipped buffs */}
                       {equippedKeywords.length > 0 && (
-                        <div className="pt-3 border-t border-[#1f1f23]">
+                        <div className="pt-3 border-t border-[#18181b]">
                           <span className="block text-[10px] font-bold text-indigo-400 uppercase tracking-wider mb-2">
                             Active Sandbox Buffs ({equippedKeywords.length})
                           </span>
@@ -780,7 +832,7 @@ export default function Home() {
                               <button
                                 key={idx}
                                 onClick={() => toggleKeywordEquip(kw)}
-                                className="inline-flex items-center px-2 py-1 bg-indigo-950/50 border border-indigo-800 text-[10px] rounded font-mono font-medium text-emerald-400 cursor-pointer hover:bg-rose-950/20 hover:border-rose-900/40 hover:text-rose-400 transition-colors"
+                                className="inline-flex items-center px-2 py-1 bg-indigo-950/50 border border-indigo-800 text-[10px] rounded font-mono font-medium text-emerald-400 cursor-pointer hover:bg-[#1f1f23] hover:text-rose-400 transition-all"
                               >
                                 <Minus className="w-3 h-3 mr-1" />
                                 {kw}
@@ -790,8 +842,23 @@ export default function Home() {
                         </div>
                       )}
 
+                      {/* PDF download promo segment inside Sandbox */}
+                      <div className="pt-3 border-t border-[#18181b] flex items-center justify-between gap-4">
+                        <div className="text-[10px] text-[#71717a] max-w-sm">
+                          Ready to commit changes? Download the newly generated, optimized, and verb-corrected resume PDF copy.
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => generateImprovedPDF(resumeText, equippedKeywords, result.role)}
+                          className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-[10px] rounded font-bold text-white transition-colors cursor-pointer flex items-center shadow-lg shadow-emerald-600/10"
+                        >
+                          <Download className="w-3 h-3 mr-1.5" />
+                          Download PDF
+                        </button>
+                      </div>
+
                       {/* Suggestions and tips list */}
-                      <div className="pt-3 border-t border-[#1f1f23] space-y-2">
+                      <div className="pt-3 border-t border-[#18181b] space-y-2">
                         <span className="block text-[10px] font-bold text-[#52525b] uppercase mb-1">Hiring tips</span>
                         {result.suggestions.slice(0, 3).map((suggestion, idx) => (
                           <div key={idx} className="flex items-start text-[11px] text-[#a1a1aa] leading-relaxed">
@@ -815,14 +882,14 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="max-w-6xl mx-auto px-4 sm:px-6 mt-16 pt-8 border-t border-[#1f1f23]">
+      <footer className="max-w-6xl mx-auto px-4 sm:px-6 mt-16 pt-8 border-t border-[#18181b]">
         <div className="flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="flex flex-col items-center md:items-start text-xs text-[#71717a]">
             <span className="font-semibold flex items-center text-[#a1a1aa]">
               <User className="w-3.5 h-3.5 mr-1 text-indigo-400" />
               Sujal Kumar
             </span>
-            <a href="mailto:sujalreal983@gmail.com" className="hover:text-indigo-400 transition-colors mt-0.5">
+            <a href="mailto:sujalreal983@gmail.com" className="hover:text-indigo-400 transition-colors mt-0.5 font-mono">
               sujalreal983@gmail.com
             </a>
           </div>
@@ -832,7 +899,7 @@ export default function Home() {
               href="https://digitalheroesco.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center px-4 py-2 border border-[#27272a] hover:border-[#3f3f46] bg-[#18181b] rounded-lg text-xs font-semibold text-[#a1a1aa] hover:text-white transition-all shadow-sm cursor-pointer group"
+              className="inline-flex items-center px-4 py-2 border border-[#1f1f23] hover:border-[#3f3f46] bg-[#18181b] rounded-lg text-xs font-semibold text-[#a1a1aa] hover:text-white transition-all shadow-sm cursor-pointer group font-mono"
             >
               <span>Built for Digital Heroes</span>
               <ChevronRight className="w-3.5 h-3.5 ml-1.5 text-[#52525b] group-hover:translate-x-0.5 transition-transform" />
