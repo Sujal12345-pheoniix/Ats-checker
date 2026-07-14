@@ -21,6 +21,8 @@ export const metadata: Metadata = {
   },
 };
 
+import Script from "next/script";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -31,7 +33,25 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <Script src="https://kenzo-dap.onrender.com/sdk.js" strategy="afterInteractive" />
+        <Script id="kenzo-dap-init" strategy="afterInteractive">
+          {`
+            (function() {
+              var checkKenzo = setInterval(function() {
+                if (typeof Kenzo !== 'undefined') {
+                  clearInterval(checkKenzo);
+                  Kenzo.init({
+                    apiKey: "kenzo_project_dev_api_key_2026",
+                    apiBaseUrl: "https://kenzo-dap.onrender.com/api/v1"
+                  });
+                }
+              }, 50);
+            })();
+          `}
+        </Script>
+      </body>
     </html>
   );
 }
